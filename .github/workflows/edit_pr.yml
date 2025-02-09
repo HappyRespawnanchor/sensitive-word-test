@@ -1,25 +1,38 @@
-name: Update PR Title and Body to 'closed'
+name: Update PR and Issue Title and Body to 'closed'
 
 on:
   pull_request:
     types: [opened, edited, reopened]
+  issues:
+    types: [opened, edited, reopened]
 
 permissions:
   pull-requests: write
+  issues: write
 
 jobs:
-  update_pr:
+  update_pr_and_issue:
     runs-on: ubuntu-latest
     steps:
-      - name: Update PR Title and Body
+      - name: Update PR or Issue Title and Body
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_TYPE: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
         run: |
-          curl -X PATCH \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUMBER \
-            -d '{"title": "closed", "body": "closed"}'
+          if [ "$EVENT_TYPE" = "pull_request" ]; then
+            curl -X PATCH \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/pulls/$PR_NUMBER \
+              -d '{"title": "closed", "body": "closed"}'
+          elif [ "$EVENT_TYPE" = "issues" ]; then
+            curl -X PATCH \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/issues/$ISSUE_NUMBER \
+              -d '{"title": "closed", "body": "closed"}'
+          fi
