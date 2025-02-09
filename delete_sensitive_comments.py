@@ -27,24 +27,17 @@ def fetch_sensitive_words(url):
 # 加载敏感词
 SENSITIVE_WORDS = fetch_sensitive_words(SENSITIVE_WORDS_URL)
 
-# 过滤并替换敏感词
-def censor_text(text, words):
-    def replace_match(match):
-        return "*" * len(match.group())  # 替换为等长的星号
-
+# 检查评论是否包含敏感词
+def contains_sensitive_word(text, words):
     pattern = re.compile("|".join(re.escape(word) for word in words), re.IGNORECASE)
-    return pattern.sub(replace_match, text)
+    return bool(pattern.search(text))
 
-# 处理评论
-new_comment_body = censor_text(COMMENT_BODY, SENSITIVE_WORDS)
-
-if new_comment_body != COMMENT_BODY:
+# 如果评论包含敏感词，则删除该评论
+if contains_sensitive_word(COMMENT_BODY, SENSITIVE_WORDS):
     query = """
-    mutation ($id: ID!, $body: String!) {
-      updateDiscussionComment(input: {commentId: $id, body: $body}) {
-        comment {
-          body
-        }
+    mutation ($id: ID!) {
+      deleteDiscussionComment(input: {id: $id}) {
+        clientMutationId
       }
     }
     """
@@ -54,10 +47,14 @@ if new_comment_body != COMMENT_BODY:
     }
     payload = {
         "query": query,
-        "variables": {"id": COMMENT_ID, "body": new_comment_body}
+        "variables": {"id": COMMENT_ID}
     }
 
     response = requests.post(GITHUB_GRAPHQL_API, json=payload, headers=headers)
 
     if response.status_code == 200:
-        print("Updated the comment by replacing sensitive words with corresponding-length asterisks.")
+        print("Deleted the comment containing sensitive words.")
+    else:
+        print(f"Failed to delete comment: {response.text}")
+else:
+    print("No sensitive words detected. Comment remains.")
